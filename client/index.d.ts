@@ -287,13 +287,12 @@ export class JitCommits {
    * @param {string} logMessage       Log message.
    * @param {Date} dateAndTime        Date and time of the commit.
    * @param {string} userId           Internal user ID
-   * @param {string} computedHash     Computation of the hash.
    * @param {string} commitId         Optional commit id.
    *
    * @returns {undefined} None
    */
   addCommit( diff: JitDiff, logMessage: string, dateAndTime: Date, userId: string,
-    computedHash: string, commitId?: string );
+    commitId?: string );
 
   /**
    * Get all commits.
@@ -579,6 +578,23 @@ export class JitNotifications {
    * @returns {undefined} None.
    */
   deregister( objId: string ): void;
+
+  /**
+   * Add a task to the list. for syncing.
+   *
+   * @param {string} owner                Owner of the branch.
+   * @param {string} branch               Name of the branch.
+   * @param {string} objId                Object Id.
+   * @param {any} obj                     Current object.
+   * @param {any} commit                  Commit made.
+   * @param {any} base                    (Optional) Base object.
+   * @param {Branches} branches           (Optional) Branches information for this repository.
+   * @param {boolean} isSearch            (Optional) Is this a search branch?
+   *
+   * @returns {undefined} None.
+   */
+  notify( owner:string, branch: string, objId: string, obj: any, commit: any,
+    base?: any, branches?: any, isSearch?: boolean ): void;
 }
 
 export class JitPullRequests {
@@ -722,11 +738,13 @@ export class JitRepository {
    * @param {Number} start                    Return documents from this position
    *                                          in the resultset.
    * @param {Number} limit                    Return these many documents.
+   * @param {Boolean} insidePromise           If there is a promise in which
+   *                                          the code is being executed.
    *
    * @returns {Array.Document} doc            Promise for an array of documents.
    */
   search(branch: any, query: any, projections?: any, sort?: any, start?: number,
-    limit?: number): any;
+    limit?: number, insidePromise?: boolean ): any;
 
   /**
    * Commit an object back to its branch.
@@ -780,6 +798,7 @@ export class JitRepository {
    */
   getMergeReport(branch: any, objId: string, commits: any): any;
 
+  user: string;
   branches: JitBranches;
 }
 
@@ -817,23 +836,34 @@ export class JitSearch {
   /**
    * Merge data from two search results.
    *
-   * @param {Array.Object} base                 Data from the base search.
-   * @param {Array.Object} draft                Data from draft search.
+   * @param {any[]} base                        Data from the base search.
+   * @param {any[]} draft                       Data from draft search.
    *
-   * @returns {Array.Object} results          Merged results.
+   * @returns {any[]} results                   Merged results.
    */
   static mergeSearchResults( base: any[], draft: any[] ): any[];
 
   /**
    * Merge data from search results for Ids.
    *
-   * @param {Array.Object} base                 Data from the base search.
-   * @param {Array.Object} draft                Data from draft search.
-   * @param {Array.String} idKeys               Keys to use for ids.
+   * @param {any[]} base                        Data from the base search.
+   * @param {any[]} draft                       Data from draft search.
+   * @param {string[]} idKeys                   Keys to use for ids.
    *
-   * @returns {Array.Object} results            Merged results.
+   * @returns {any[]} results                   Merged results.
    */
   static mergeSearchResultsForIds( base: any[], draft: any[], idKeys: string[] ): any[];
+
+  /**
+   * Once the results are merged, they may need to be sorted. This function
+   * is called to do the sorting.
+   *
+   * @param {any[]} results                     Merged data results.
+   * @param {any} sort                          Mongo like sorting object.
+   *
+   * @returns {any[]} results                   Sorted results.
+   */
+  static sortResults( results: any[], sort: any ): any[];
 }
 
 export class JitSocketClient {
@@ -902,12 +932,13 @@ export class JitSocketClient {
    * @param {string} remoteBranch             Name of the remote branch.
    * @param {string} remoteObjectId           ID for the remote object.
    * @param {Array.commits} commits           Commits to be pushed.
-   * @param {string} head                     Head to which we are pushing.
+   * @param {string} head                     (Optional) Head to which we are pushing.
    *                                          Undefined if its a new object.
    *
    * @returns {Promise} p                     Promise with result of push request.
    */
-  push(localBranch: string, remoteOwner: string, remoteBranch: string, remoteObjectId: string, commits: any, head?: string): any;
+  push(localBranch: string, remoteOwner: string, remoteBranch: string, remoteObjectId: string,
+    commits: any, head?: string ): any;
 
   /**
    * Search for objects on the remote branch.
@@ -943,6 +974,18 @@ export class JitSocketClient {
    * @returns {Promise} p                     Promise with result of branching request.
    */
   createBranch(branch: string, users?: any, groups?: any, listeners?: any): any;
+
+  /**
+   * Send a notification directly to clients.
+   *
+   * @param {string} ref                      Reference for the notification.
+   * @param {any} doc                         Document to notify.
+   * @param {string[]} users                  Users who receive this notification.
+   * @param {string[]} groups                 Groups that receive this notification.
+   *
+   * @returns {Promise} p                     Promise with result of notification request.
+   */
+  notify(ref: string, doc: any, users: string[], groups: string[]): any;
 
   /**
    * Chunk for file
@@ -1074,12 +1117,15 @@ export class JitSync {
    * @param {string} remoteBranch             Name of the remote branch.
    * @param {string} remoteObjectId           ID for the remote object.
    * @param {Array.commits} commits           Commits to be pushed.
-   * @param {string} head                     Head to which we are pushing.
+   * @param {string} head                     (Optional) Head to which we are pushing.
    *                                          Undefined if its a new object.
+   * @param {boolean} highPriority            (Optional) Set to true if request
+   *                                          is to be made on a priority.
    *
    * @returns {undefined} None
    */
-  push(localBranch: string, remoteOwner: string, remoteBranch: string, remoteObjectId: string, commits: any[], head?: string): void;
+  push(localBranch: string, remoteOwner: string, remoteBranch: string, remoteObjectId:
+    string, commits: any[], head?: string, highPriority?: boolean): void;
 
   /**
    * Search for objects on the remote branch.
@@ -1114,6 +1160,18 @@ export class JitSync {
    * @returns {undefined} None
    */
   createBranch(branch: string, users?: any, groups?: any, listeners?: any): void;
+
+  /**
+   * Send notifications to users and groups.
+   *
+   * @param {string} ref                      Reference for the notification.
+   * @param {any} docum                       Document to notify.
+   * @param {string[]} users                  Users who receive this notification.
+   * @param {string[]} groups                 Groups that receive this notification.
+   *
+   * @returns {undefined} None
+   */
+  notify(ref: string, doc: any, users: string[], groups: string[]): void;
 
   /**
    * Chunk for file
@@ -1153,6 +1211,7 @@ export class JitSync {
   static POST_FILE_CHUNK: number;
   static MERGE_FILE_CHUNK: number;
   static NOTIFY_DATA: number;
+  static SEND_NOTIFICATION: number;
 }
 
 export class JitFileManager {

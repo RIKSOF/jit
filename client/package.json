@@ -28,7 +28,7 @@
   "peerDependencies": {
     "bcryptjs": "2.3.0",
     "bluebird": "3.4.7",
-    "client-oauth2": "4.1.0",
+    "client-oauth2": "2.2.0",
     "js-sha3": "0.5.5",
     "lodash": "4.17.2",
     "lokijs": "1.4.1",
