@@ -1,5 +1,5 @@
 /**
- * @author Copyright RIKSOF (Private) Limited 2017.
+ * @author Copyright RIKSOF (Private) Limited.
  *
  * @file JIT Client modules.
  */
@@ -131,30 +131,42 @@ export class JitClient {
    * @constructor
    *
    * @param {string} url                  URL of server.
-   * @param {string} clientId             Client Id.
+   * @param {string} clientId             Client Id of the format owner/clientId.
    * @param {string} clientSecret         Client secret.
+   * @param {string[]} scopes             Scopes to use.
    *
    * @class [JitClient Object]
    */
-  constructor(url: string, clientId: string, clientSecret: string);
+  constructor(url: string, clientId: string, clientSecret: string, scopes: string[]);
 
   /**
-   * Connects to user using just the client credentials. If username and
-   * passsword are given, then uses those credentials.
+   * Connects to server using the password grant. Default client information
+   * is used for the client.
    *
-   * @param {string} username                 (Optional) Username
-   * @param {string} password                 (Optional) Password
+   * @param {string} username                 Username
+   * @param {string} password                 Password
    *
    * @returns {Promise} p                     Promise with result of connection request.
    */
-  connect(username?: string, password?: string): any;
+  passwordGrant(username: string, password: string): any;
+
+  /**
+   * Connects to user using just the client credentials.
+   *
+   * @param {string} clientId                 Client Id
+   * @param {string} secret                   Secret
+   *
+   * @returns {Promise} p                     Promise with result of connection request.
+   */
+  clientCredentials(cliendId: string, secret: string): any;
 
   /**
    * Connects using a previously negotiated token.
    *
-   * @param {string} username                 Username or client Id.
-   * @param {string} token                    Token
-   * @param {string} refreshToken             Refresh token.
+   * @param {string} username                 Username or client Id of the format
+   *                                          owner/username.
+   * @param {string} token                    Token of the format owner/token.
+   * @param {string} refreshToken             Refresh token of the format owner/token.
    * @param {boolean} refresh                 Refresh boolean.
    *
    * @returns {Boolean} result                True if token successfully created.
@@ -408,6 +420,25 @@ export namespace JitDocument {
    * @returns {Array.string} groups     Groups with access to this object.
    */
   function getGroups(doc: any): any;
+
+  /**
+   * Get listeners registered with this object.
+   *
+   * @param {Document} doc              Document.
+   *
+   * @returns {any[]} lstnrs            Listeners for this document.
+   */
+  function getListeners(doc: any): any[];
+
+  /**
+   * Set listeners registered with this object.
+   *
+   * @param {Document} doc              Document.
+   * @param {any[]} lstnrs              Listeners for this document.
+   *
+   * @returns {undefined} None.
+   */
+  function setListeners(doc: any, lstnrs: any[] ): void;
 }
 
 export namespace JitFileHash {
@@ -525,7 +556,7 @@ export class JitLokiDb {
 /**
  * Map reduce functions using mathjs
  */
-export class JitMapReduceMath {}
+export class JitMapReduceTemplates {}
 
 export namespace JitMathLib {
 
@@ -615,7 +646,6 @@ export class JitPullRequests {
    * Add a new pull request.
    *
    * @param {string} localBranch              Name of the local branch.
-   * @param {string} remoteOwner              Owner of the remote branch.
    * @param {string} remoteBranch             Name of the remote branch.
    * @param {string} remoteObjectId           ID for the remote object.
    * @param {string} reference                Reference reviewer uses to review.
@@ -625,8 +655,8 @@ export class JitPullRequests {
    *
    * @returns {Promise} p                     Promise for saved pull request.
    */
-  add( localBranch: string, remoteOwner: string, remoteBranch: string,
-    remoteObjectId: string, reference: string, commits: any[], head?: string );
+  add( localBranch: string, remoteBranch: string, remoteObjectId: string,
+    reference: string, commits: any[], head?: string );
 }
 
 /**
@@ -703,7 +733,7 @@ export class JitRepository {
    * @constructor
    *
    * @param {string} user                 Repository for user.
-   * @param {lokijs} db                   DB
+   * @param {lokijs|MongoDb} db           DB
    * @param {JitNotifications} notifier   Notifications for changes.
    * @param {JitMapReduce} MapReduce      MapReduce class.
    *
@@ -717,6 +747,13 @@ export class JitRepository {
    * @returns {Promise} p               Promise to indicate when the setup completed.
    */
   setup(): any;
+
+  /**
+   * Drop the repository.
+   *
+   * @returns {Promise} p             Promise to indicate when the drop is completed.
+   */
+  drop(): any;
 
   /**
    * Get object with given jsonit id.
@@ -752,11 +789,13 @@ export class JitRepository {
    * @param {Object} branch               Reference to the branch.
    * @param {Document} obj                Object to be comitted.
    * @param {string} logMessage           Log message for commit.
-   * @param {string} commitId             Optional commit ID.
+   * @param {string} committer            User making the commit.
+   * @param {string} commitId             (Optional) commit ID.
    *
    * @returns {Document} doc              Promise for a document.
    */
-  commit(branch: any, obj: any, logMessage: string, commitId?: string): any;
+  commit(branch: any, obj: any, logMessage: string, committer: string,
+    commitId?: string): any;
 
   /**
    * This is for merging two branches. The other branch can be a remote
@@ -766,13 +805,15 @@ export class JitRepository {
    * @param {string} objId                  $jsonit.id of object to be merged to.
    * @param {Array.Commits.Commit} commits  All commits done on the remote branch.
    * @param {string} prefix                 Message prefix.
+   * @param {string} committer              Person making the merge.
    * @param {string} head                   (Optional) The head on which we merge commits.
    * @param {string} remoteBranch           (Optional) To remember the head
    *                                        we pulled from remote branch.
    *
    * @returns {Document} obj                Updated object.
    */
-  mergeToBranch(branch: any, objId: string, commits: any[], prefix: string, head?: string, remoteBranch?: string): any;
+  mergeToBranch(branch: any, objId: string, commits: any[], prefix: string,
+    committer: string, head?: string, remoteBranch?: string): any;
 
   /**
    * After we have merged to remote branch. This method is called to confirm
@@ -1013,6 +1054,9 @@ export class JitSocketClient {
   mergeChunksForFile(fileId: string, branch: string, remoteOwner:string ): void;
 
   connection: any;
+  promiseOnConnection: any;
+  owner: string;
+  token: string;
 
   static STATE_CONNECTED: number;
   static STATE_DISCONNECTED: number;
@@ -1281,12 +1325,11 @@ export class JitUserManagement {
    *
    * @constructor
    *
-   * @param {Repostitory} repo            The repo we keep our data.
-   * @param {Object} branch               The branch we keep our data.
+   * @param {lokijs|MongoDb} db           DB
    *
    * @class [UserManagement Object]
    */
-  constructor( repo: JitRepository, branch: any );
+  constructor( db: any );
 
   /**
    * Add a user to the system. By default the user status is inactive.
@@ -1294,40 +1337,44 @@ export class JitUserManagement {
    * @param {string} name                Name.
    * @param {string} emailOrId           Email or ID.
    * @param {string} passwordOrSecret    Password or secret.
-   * @param {string} grantType           Grant type allowed 'client_credentials' or 'password'.
+   * @param {string} grants              Grant types in array eg:
+   *                                     [ 'client_credentials', 'password' ].
+   * @param {string} owner               Domain for the owner of Users branch.
    * @param {string} message             Commit message.
    *
    * @returns {Promise} result           Promise that resolves to true if added
    *                                     or false if user already exists.
    */
   addUser( name: string, emailOrId: string, passwordOrSecret: string,
-    grantType: string, message: string ): any;
+    grantType: string, owner: string, message: string ): any;
 
   /**
    * Change user status
    *
    * @param {string} emailOrId           Email or ID.
    * @param {string} status              Desired status.
+   * @param {string} owner               Domain for the owner of Users branch.
    * @param {string} message             Commit message
    *
    * @returns {Boolean} result           True if updated. Fales implies user
    *                                     not found.
    */
-  changeUserStatus( emailOrId: string, status: string, message: string ): any;
+  changeUserStatus( emailOrId: string, status: string,
+    owner: string, message: string ): any;
 
   /**
    * Change user password
    *
    * @param {string} emailOrId              Email or Id.
    * @param {string} passwordOrSecret       New password or secret
+   * @param {string} owner                  Domain for the owner of Users branch.
    * @param {string} message                Commit message
    *
    * @returns {Boolean} result              True if updated. Fales implies user
    *                                        not found.
    */
   changeUserPasswordOrSecret(emailOrId: string, passwordOrSecret: string,
-    message: string ): any;
-
+    owner: string, message: string ): any;
 
   /**
    * Generate password hash.
